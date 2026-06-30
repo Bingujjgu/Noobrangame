@@ -1,0 +1,125 @@
+local player = game:GetService("Players").LocalPlayer
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+
+local oldGui = game:GetService("CoreGui"):FindFirstChild("ThunderHub_UI")
+if oldGui then oldGui:Destroy() end
+
+local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
+ScreenGui.Name = "ThunderHub_UI"
+
+local NButton = Instance.new("TextButton", ScreenGui)
+NButton.Size = UDim2.new(0, 45, 0, 45)
+NButton.Position = UDim2.new(0, 15, 0.5, -22)
+NButton.Text = "N"
+NButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+NButton.TextColor3 = Color3.new(1, 1, 1)
+NButton.Font = Enum.Font.GothamBold
+Instance.new("UICorner", NButton).CornerRadius = UDim.new(0, 10)
+
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 280, 0, 480)
+MainFrame.Position = UDim2.new(0.5, -140, 0.5, -240)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.Active = true
+MainFrame.Draggable = true
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 15)
+
+NButton.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
+
+local speed, infJump, noclip, aim, fly, fogFix = false, false, false, false, false, false
+local flySpeed = 50
+local bv
+
+local function createToggle(text, pos, callback)
+    local btn = Instance.new("TextButton", MainFrame)
+    btn.Size = UDim2.new(0, 240, 0, 45)
+    btn.Position = pos
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    btn.Text = "  " .. text
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.Gotham
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    
+    local status = Instance.new("TextLabel", btn)
+    status.Size = UDim2.new(0, 50, 1, 0)
+    status.Position = UDim2.new(1, -55, 0, 0)
+    status.Text = "❌"
+    status.BackgroundTransparency = 1
+    
+    btn.MouseButton1Click:Connect(function()
+        local active = callback()
+        status.Text = active and "✅" or "❌"
+        btn.BackgroundColor3 = active and Color3.fromRGB(0, 100, 200) or Color3.fromRGB(40, 40, 40)
+    end)
+end
+
+createToggle("Chạy nhanh", UDim2.new(0, 20, 0, 50), function() speed = not speed return speed end)
+createToggle("Nhảy vô hạn", UDim2.new(0, 20, 0, 105), function() infJump = not infJump return infJump end)
+createToggle("Xuyên tường", UDim2.new(0, 20, 0, 160), function() noclip = not noclip return noclip end)
+createToggle("Aim Bot", UDim2.new(0, 20, 0, 215), function() aim = not aim return aim end)
+createToggle("Fix Lag/Sương mù", UDim2.new(0, 20, 0, 270), function() 
+    fogFix = not fogFix
+    Lighting.FogEnd = fogFix and 999999 or 1000
+    Lighting.GlobalShadows = not fogFix
+    return fogFix 
+end)
+createToggle("Bay", UDim2.new(0, 20, 0, 325), function() 
+    fly = not fly
+    if fly then
+        local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if root then
+            bv = Instance.new("BodyVelocity", root)
+            bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bv.Velocity = Vector3.new(0, 0, 0)
+        end
+    elseif bv then bv:Destroy() end
+    return fly 
+end)
+
+RunService.Heartbeat:Connect(function()
+    if player.Character and player.Character:FindFirstChild("Humanoid") then
+        player.Character.Humanoid.WalkSpeed = speed and 100 or 16
+    end
+    
+    if fly and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        local cam = workspace.CurrentCamera
+        local moveDir = Vector3.new(0,0,0)
+        if UIS:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
+        bv.Velocity = moveDir * flySpeed
+    end
+end)
+
+UIS.JumpRequest:Connect(function()
+    if infJump then player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
+end)
+
+RunService.Stepped:Connect(function()
+    if noclip and player.Character then
+        for _, v in pairs(player.Character:GetDescendants()) do
+            if v:IsA("BasePart") then v.CanCollide = false end
+        end
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if aim then
+        local target = nil
+        local dist = math.huge
+        for _, v in pairs(game.Players:GetPlayers()) do
+            if v ~= player and v.Character and v.Character:FindFirstChild("Head") then
+                local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(v.Character.Head.Position)
+                if onScreen then
+                    local mag = (Vector2.new(pos.X, pos.Y) - UIS:GetMouseLocation()).Magnitude
+                    if mag < dist then dist = mag target = v.Character.Head end
+                end
+            end
+        end
+        if target then workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, target.Position) end
+    end
+end)
