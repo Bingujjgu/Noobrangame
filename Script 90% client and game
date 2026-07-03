@@ -28,7 +28,7 @@ Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 15)
 
 NButton.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
 
-local speed, infJump, noclip, aim, fly, fogFix, invisible = false, false, false, false, false, false, false
+local speed, infJump, noclip, aim, fly, fogFix, invisible, esp = false, false, false, false, false, false, false, false
 local flySpeed = 50
 local bv
 
@@ -67,8 +67,7 @@ createToggle("Fix Lag (Minimal)", UDim2.new(0, 20, 0, 250), function()
     Lighting.GlobalShadows = not fogFix
     if workspace:FindFirstChild("Clouds") then workspace.Clouds.Enabled = not fogFix end
     for _, v in pairs(workspace:GetDescendants()) do
-        if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Fire") or v:IsA("Smoke") or 
-           v:IsA("Explosion") or v:IsA("Sparkles") or v:IsA("Beam") or v:IsA("PostEffect") then v.Enabled = not fogFix end
+        if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Explosion") or v:IsA("Sparkles") or v:IsA("Beam") or v:IsA("PostEffect") then v.Enabled = not fogFix end
         if v:IsA("BasePart") then v.CastShadow = not fogFix end
     end
     workspace.Terrain.Decoration = not fogFix
@@ -85,27 +84,68 @@ createToggle("Bay", UDim2.new(0, 20, 0, 305), function()
     elseif bv then bv:Destroy() player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp) end
     return fly 
 end)
-
 createToggle("Tàng hình", UDim2.new(0, 20, 0, 360), function()
     invisible = not invisible
     local char = player.Character
     if char then
         for _, v in pairs(char:GetDescendants()) do
             if v:IsA("BasePart") or v:IsA("Decal") then v.Transparency = invisible and 1 or 0 end
-            if v:IsA("Accessory") then
-                for _, p in pairs(v:GetDescendants()) do if p:IsA("BasePart") then p.Transparency = invisible and 1 or 0 end end
-            end
+            if v:IsA("Accessory") then for _, p in pairs(v:GetDescendants()) do if p:IsA("BasePart") then p.Transparency = invisible and 1 or 0 end end end
         end
     end
     return invisible
 end)
+createToggle("Hào quang (ESP)", UDim2.new(0, 20, 0, 415), function()
+    esp = not esp
+    local function applyHighlight(target)
+        if target.Character and not target.Character:FindFirstChild("PlayerHighlight") then
+            local h = Instance.new("Highlight", target.Character)
+            h.Name = "PlayerHighlight"
+            h.FillColor = Color3.fromRGB(0, 255, 255)
+            h.OutlineColor = Color3.fromRGB(255, 255, 255)
+            h.FillTransparency = 0.5
+            h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        end
+    end
+    if esp then
+        for _, p in pairs(game.Players:GetPlayers()) do if p ~= player then applyHighlight(p) end end
+    else
+        for _, p in pairs(game.Players:GetPlayers()) do if p.Character and p.Character:FindFirstChild("PlayerHighlight") then p.Character.PlayerHighlight:Destroy() end end
+    end
+    return esp
+end)
 
 RunService.Heartbeat:Connect(function()
-    if player.Character and player.Character:FindFirstChild("Humanoid") then
-        player.Character.Humanoid.WalkSpeed = speed and 100 or 16
-    end
+    if player.Character and player.Character:FindFirstChild("Humanoid") then player.Character.Humanoid.WalkSpeed = speed and 100 or 16 end
     if fly and bv and player.Character:FindFirstChild("HumanoidRootPart") then
         local cam = workspace.CurrentCamera
+        local moveDir = Vector3.new(0,0,0)
+        if UIS:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
+        bv.Velocity = moveDir * flySpeed
+    end
+end)
+
+UIS.JumpRequest:Connect(function() if infJump then player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end end)
+RunService.Stepped:Connect(function() if noclip and player.Character then for _, v in pairs(player.Character:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end end end)
+RunService.RenderStepped:Connect(function()
+    if aim then
+        local target = nil
+        local dist = math.huge
+        for _, v in pairs(game.Players:GetPlayers()) do
+            if v ~= player and v.Character and v.Character:FindFirstChild("Head") then
+                local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(v.Character.Head.Position)
+                if onScreen then
+                    local mag = (Vector2.new(pos.X, pos.Y) - UIS:GetMouseLocation()).Magnitude
+                    if mag < dist then dist = mag target = v.Character.Head end
+                end
+            end
+        end
+        if target then workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, target.Position) end
+    end
+end)
         local moveDir = Vector3.new(0,0,0)
         if UIS:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
         if UIS:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
