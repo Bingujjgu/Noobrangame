@@ -28,7 +28,7 @@ Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 15)
 
 NButton.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
 
-local speed, infJump, noclip, aim, fly, fogFix = false, false, false, false, false, false
+local speed, infJump, noclip, aim, fly, fogFix, invisible = false, false, false, false, false, false, false
 local flySpeed = 50
 local bv
 
@@ -56,35 +56,55 @@ local function createToggle(text, pos, callback)
     end)
 end
 
-createToggle("Chạy nhanh", UDim2.new(0, 20, 0, 50), function() speed = not speed return speed end)
-createToggle("Nhảy vô hạn", UDim2.new(0, 20, 0, 105), function() infJump = not infJump return infJump end)
-createToggle("Xuyên tường", UDim2.new(0, 20, 0, 160), function() noclip = not noclip return noclip end)
-createToggle("Aim Bot", UDim2.new(0, 20, 0, 215), function() aim = not aim return aim end)
-createToggle("Fix Lag/Sương mù", UDim2.new(0, 20, 0, 270), function() 
+createToggle("Chạy nhanh", UDim2.new(0, 20, 0, 30), function() speed = not speed return speed end)
+createToggle("Nhảy vô hạn", UDim2.new(0, 20, 0, 85), function() infJump = not infJump return infJump end)
+createToggle("Xuyên tường", UDim2.new(0, 20, 0, 140), function() noclip = not noclip return noclip end)
+createToggle("Aim Bot", UDim2.new(0, 20, 0, 195), function() aim = not aim return aim end)
+createToggle("Fix Lag (Minimal)", UDim2.new(0, 20, 0, 250), function() 
     fogFix = not fogFix
     Lighting.FogEnd = fogFix and 999999 or 1000
+    Lighting.FogStart = fogFix and 999999 or 0
     Lighting.GlobalShadows = not fogFix
+    if workspace:FindFirstChild("Clouds") then workspace.Clouds.Enabled = not fogFix end
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Fire") or v:IsA("Smoke") or 
+           v:IsA("Explosion") or v:IsA("Sparkles") or v:IsA("Beam") or v:IsA("PostEffect") then v.Enabled = not fogFix end
+        if v:IsA("BasePart") then v.CastShadow = not fogFix end
+    end
+    workspace.Terrain.Decoration = not fogFix
     return fogFix 
 end)
-createToggle("Bay", UDim2.new(0, 20, 0, 325), function() 
+createToggle("Bay", UDim2.new(0, 20, 0, 305), function() 
     fly = not fly
-    if fly then
-        local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        if root then
-            bv = Instance.new("BodyVelocity", root)
-            bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            bv.Velocity = Vector3.new(0, 0, 0)
-        end
-    elseif bv then bv:Destroy() end
+    local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if fly and root then
+        bv = Instance.new("BodyVelocity", root)
+        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bv.Velocity = Vector3.new(0, 0, 0)
+        player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+    elseif bv then bv:Destroy() player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp) end
     return fly 
+end)
+
+createToggle("Tàng hình", UDim2.new(0, 20, 0, 360), function()
+    invisible = not invisible
+    local char = player.Character
+    if char then
+        for _, v in pairs(char:GetDescendants()) do
+            if v:IsA("BasePart") or v:IsA("Decal") then v.Transparency = invisible and 1 or 0 end
+            if v:IsA("Accessory") then
+                for _, p in pairs(v:GetDescendants()) do if p:IsA("BasePart") then p.Transparency = invisible and 1 or 0 end end
+            end
+        end
+    end
+    return invisible
 end)
 
 RunService.Heartbeat:Connect(function()
     if player.Character and player.Character:FindFirstChild("Humanoid") then
         player.Character.Humanoid.WalkSpeed = speed and 100 or 16
     end
-    
-    if fly and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+    if fly and bv and player.Character:FindFirstChild("HumanoidRootPart") then
         local cam = workspace.CurrentCamera
         local moveDir = Vector3.new(0,0,0)
         if UIS:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
@@ -95,18 +115,8 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-UIS.JumpRequest:Connect(function()
-    if infJump then player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
-end)
-
-RunService.Stepped:Connect(function()
-    if noclip and player.Character then
-        for _, v in pairs(player.Character:GetDescendants()) do
-            if v:IsA("BasePart") then v.CanCollide = false end
-        end
-    end
-end)
-
+UIS.JumpRequest:Connect(function() if infJump then player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end end)
+RunService.Stepped:Connect(function() if noclip and player.Character then for _, v in pairs(player.Character:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end end end)
 RunService.RenderStepped:Connect(function()
     if aim then
         local target = nil
